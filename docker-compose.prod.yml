@@ -1,0 +1,37 @@
+services:
+  frontend:
+    container_name: neuroflux-frontend-prod
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    image: neuroflux-frontend:prod
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PROD_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  backend:
+    container_name: neuroflux-backend-prod
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: neuroflux-backend:prod
+    restart: unless-stopped
+    environment:
+      BACKEND_PORT: 8000
+      PYTHONUNBUFFERED: 1
+    ports:
+      - "${BACKEND_PROD_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s

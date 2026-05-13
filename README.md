@@ -1,54 +1,103 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# NeuroFlux
 
-# NeuroFlux UI
-
-This repository is split into:
+Repository layout:
 - `frontend/`: React + Vite UI
-- `backend/`: Python backend utilities and pipeline scripts
+- `backend/`: Python FastAPI service and telemetry pipeline helpers
 
-View your app in AI Studio: https://ai.studio/apps/fd2931fd-a0ca-494a-9e63-c816702324f4
+## Docker Audit Result
 
-## Run Locally
+Previous state was mixed and production-only:
+- single frontend-only Docker image served by `nginx`
+- no backend service in compose
+- no hot reload workflow in containers
+- no development bind-mount strategy for fast iteration
 
-**Prerequisites:** Node.js
+This is now split into professional dev and prod Docker workflows.
 
-1. `cd frontend`
-2. `npm install`
-3. Set `GEMINI_API_KEY` in `.env.local`
-4. `npm run dev`
+## Development (Hot Reload)
 
-## Docker (Production-style)
+Default command:
 
-The Docker image builds static assets with Vite, then serves them through `nginx` on port `8080`.
+```bash
+docker compose up --build
+```
 
-### Environment variables
+This starts:
+- frontend dev server (Vite HMR): `http://localhost:3000`
+- backend dev API (uvicorn reload): `http://localhost:8000`
+- backend API docs: `http://localhost:8000/docs`
 
-- `GEMINI_API_KEY`: required at image build time because Vite injects it during `npm run build`.
+### Why this works well for development
 
-Use `.env.example` as the template:
+- Frontend source is bind-mounted into the container.
+- Backend source is bind-mounted into the container.
+- `frontend` uses polling-capable Vite watch configuration for Docker environments.
+- `backend` uses `uvicorn --reload` for automatic restart on Python file changes.
+- `frontend/node_modules` stays container-local via a named volume to avoid host/container dependency conflicts.
+
+## Production Images
+
+Use optimized production builds:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build
+```
+
+Production endpoints:
+- frontend: `http://localhost:8080`
+- backend: `http://localhost:8000`
+
+## Environment Variables
+
+Copy template:
 
 ```bash
 cp .env.example .env
 ```
 
-### Build image
+Important variables:
+- `GEMINI_API_KEY`: used by Vite build/define logic
+- `FRONTEND_PORT`, `BACKEND_PORT`: dev port mappings
+- `CHOKIDAR_USEPOLLING`, `CHOKIDAR_INTERVAL`: frontend watch reliability in Docker
+- `FRONTEND_PROD_PORT`, `BACKEND_PROD_PORT`: production port mappings
 
-```bash
-docker build --build-arg GEMINI_API_KEY="$GEMINI_API_KEY" -t neuroflux-ui:local .
-```
+## Common Commands
 
-### Run container
-
-```bash
-docker run --rm -p 8080:8080 neuroflux-ui:local
-```
-
-Then open `http://localhost:8080`.
-
-### Docker Compose
+Start dev stack:
 
 ```bash
 docker compose up --build
 ```
+
+Run in background:
+
+```bash
+docker compose up --build -d
+```
+
+Stop:
+
+```bash
+docker compose down
+```
+
+Rebuild from scratch:
+
+```bash
+docker compose build --no-cache
+docker compose up
+```
+
+View logs:
+
+```bash
+docker compose logs -f frontend
+docker compose logs -f backend
+```
+
+## Troubleshooting
+
+- If frontend does not live-reload, keep `CHOKIDAR_USEPOLLING=true` in `.env`.
+- If dependencies seem stale, rebuild frontend image: `docker compose build frontend`.
+- If Docker daemon is unavailable, start Docker Desktop and retry.
+- If ports conflict, change `FRONTEND_PORT`/`BACKEND_PORT` in `.env`.

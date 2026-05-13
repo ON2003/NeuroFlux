@@ -5,6 +5,7 @@
 !.env.example
 node_modules
 frontend/node_modules
+backend/.venv
 dist
 frontend/dist
 npm-debug.log*
@@ -19,4 +20,3 @@ findings.md
 progress.md
 task_plan.md
 gemini.md
-backend
